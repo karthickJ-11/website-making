@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Name — Researcher</title>
+  <meta name="description" content="Personal academic website of Your Name — research, publications, and CV." />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav container">
+      <a href="#top" class="brand">Your Name</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#about">About</a></li>
+        <li><a href="#research">Research</a></li>
+        <li><a href="#publications">Publications</a></li>
+        <li><a href="#experience">Experience</a></li>
+        <li><a href="#education">Education</a></li>
+        <li><a href="#skills">Skills</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li><a href="assets/resume.pdf" class="btn-cv" target="_blank" rel="noopener">Resume (PDF)</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero container" id="about">
+      <div class="hero-photo">
+        <img src="assets/profile.jpg" alt="Portrait of Your Name" onerror="this.src='https://via.placeholder.com/240x240?text=Photo'" />
+      </div>
+      <div class="hero-text">
+        <p class="eyebrow">Ph.D. Candidate / Researcher, Your Department</p>
+        <h1>Your Name</h1>
+        <p class="tagline">
+          I work on <strong>your research area</strong> — briefly describe your focus,
+          e.g. "machine learning for scientific discovery" or "computational biology."
+        </p>
+        <p class="affiliation">Your Institution &middot; Your Lab/Group</p>
+        <div class="hero-links">
+          <a href="mailto:you@example.edu">Email</a>
+          <a href="https://scholar.google.com" target="_blank" rel="noopener">Google Scholar</a>
+          <a href="https://github.com/yourusername" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://linkedin.com/in/yourusername" target="_blank" rel="noopener">LinkedIn</a>
+          <a href="https://orcid.org/0000-0000-0000-0000" target="_blank" rel="noopener">ORCID</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="container" id="research">
+      <h2>Research Interests</h2>
+      <ul class="tag-list">
+        <li>Research Area 1</li>
+        <li>Research Area 2</li>
+        <li>Research Area 3</li>
+        <li>Research Area 4</li>
+      </ul>
+      <p>
+        Write 2-3 sentences summarizing your research agenda: the problems you study,
+        the methods you use, and why the work matters. This is often the first thing
+        collaborators and hiring committees read.
+      </p>
+    </section>
+
+    <section class="container" id="publications">
+      <h2>Publications</h2>
+      <ol class="pub-list">
+        <li>
+          <span class="pub-title">Paper Title Goes Here</span>
+          <span class="pub-authors">Your Name, Coauthor A, Coauthor B</span>
+          <span class="pub-venue">Conference/Journal Name, 2026</span>
+          <span class="pub-links">
+            <a href="#" target="_blank" rel="noopener">PDF</a> ·
+            <a href="#" target="_blank" rel="noopener">Code</a> ·
+            <a href="#" target="_blank" rel="noopener">BibTeX</a>
+          </span>
+        </li>
+        <li>
+          <span class="pub-title">Another Paper Title</span>
+          <span class="pub-authors">Coauthor C, Your Name</span>
+          <span class="pub-venue">Workshop Name, 2025</span>
+          <span class="pub-links">
+            <a href="#" target="_blank" rel="noopener">PDF</a> ·
+            <a href="#" target="_blank" rel="noopener">Code</a>
+          </span>
+        </li>
+      </ol>
+    </section>
+
+    <section class="container" id="experience">
+      <h2>Experience</h2>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-date">2024 &ndash; Present</div>
+          <div class="timeline-content">
+            <h3>Position Title</h3>
+            <p class="org">Institution / Company</p>
+            <p>One or two lines describing your role and key contributions.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-date">2022 &ndash; 2024</div>
+          <div class="timeline-content">
+            <h3>Previous Position</h3>
+            <p class="org">Institution / Company</p>
+            <p>One or two lines describing your role and key contributions.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="container" id="education">
+      <h2>Education</h2>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-date">2023 &ndash; Present</div>
+          <div class="timeline-content">
+            <h3>Ph.D. in Your Field</h3>
+            <p class="org">Your University</p>
+            <p>Advisor: Prof. Name</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-date">2019 &ndash; 2023</div>
+          <div class="timeline-content">
+            <h3>B.Tech / B.Sc. in Your Field</h3>
+            <p class="org">Your University</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="container" id="skills">
+      <h2>Skills</h2>
+      <ul class="tag-list">
+        <li>Python</li>
+        <li>PyTorch</li>
+        <li>SQL</li>
+        <li>LaTeX</li>
+        <li>Add your skills</li>
+      </ul>
+    </section>
+
+    <section class="container" id="contact">
+      <h2>Contact</h2>
+      <p>
+        Feel free to reach out about research collaborations, talks, or opportunities.
+      </p>
+      <p>
+        <a href="mailto:you@example.edu">you@example.edu</a> &middot;
+        Office: Building, Room, Your Institution
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; <span id="year"></span> Your Name. Built with plain HTML/CSS/JS.</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
