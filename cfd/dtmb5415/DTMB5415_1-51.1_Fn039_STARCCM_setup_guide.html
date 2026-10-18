@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DTMB 5415 Setup Guide</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--mut:#5f5e58;--line:#dcd9d0;--acc:#1f5f8b;--warn:#8a5a00;--wbg:#fff4dc;--th:#efece4}
+@media (prefers-color-scheme:dark){:root{--bg:#171716;--fg:#e8e6e0;--mut:#a3a19a;--line:#3a3935;--acc:#7fb6de;--warn:#e7b755;--wbg:#2e2616;--th:#24231f}}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:0 16px}
+main{max-width:980px;margin:32px auto 80px}
+h1{font-size:1.7em;margin:.2em 0}h2{margin-top:2.2em;border-bottom:1px solid var(--line);padding-bottom:.2em;color:var(--acc)}h3{margin-top:1.4em}
+.sub{color:var(--mut)}
+table{border-collapse:collapse;width:100%;margin:.8em 0;font-size:.93em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}th{background:var(--th)}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.flag{background:var(--wbg);border-left:4px solid var(--warn);padding:8px 12px;margin:10px 0}
+.flag b{color:var(--warn)}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em}
+nav ol{columns:2;column-gap:32px}
+@media(max-width:640px){nav ol{columns:1}}
+</style></head><body><main>
+<h1>DTMB 5415 calm-water resistance in STAR-CCM+</h1>
+<p class="sub">Model scale 1:51.1 · Fn = 0.39 · overset mesh · DFBI free sinkage &amp; trim · VOF · prepared 26 Sep 2026</p>
+
+<div class="flag"><b>Read first.</b> The published DTMB 5415 models are INSEAN 2340 (1:24.824, L<sub>PP</sub> 5.720 m), IIHR/DTMB 5512 (1:46.588, 3.048 m, used at the Tokyo 2015 and Gothenburg 2010 workshops) and FORCE (1:35.48, 4.002 m). I don't know of a 1:51.1 model, so every number here is scaled from the full-scale hull (L<sub>PP</sub> = 142.0 m) to your scale. If your IGES file was already scaled to another model, check L<sub>PP</sub> in the geometry and recompute (all mesh sizes below scale linearly with L, and y<sup>+</sup> heights scale roughly as L<sup>0.1</sup>/√L at fixed Fn). Hull particulars marked ⚑ are from memory of the workshop documentation. Check them against your geometry's hydrostatics before running.</div>
+
+<nav><h3>Contents</h3><ol>
+<li><a href="#p">Case particulars &amp; derived flow numbers</a></li>
+<li><a href="#dom">Domain &amp; boundary conditions</a></li>
+<li><a href="#bg">Background mesh sizes</a></li>
+<li><a href="#ov">Overset region &amp; cell-size matching</a></li>
+<li><a href="#pl">Prism layers (wall-function and low-y+)</a></li>
+<li><a href="#phys">Physics &amp; solver settings</a></li>
+<li><a href="#dt">Time step &amp; run length</a></li>
+<li><a href="#dfbi">DFBI setup &amp; ramp</a></li>
+<li><a href="#post">Resistance reduction (ITTC)</a></li>
+<li><a href="#gc">Grid / time-step convergence plan</a></li>
+<li><a href="#iitm">Link to your IITM-RANS3D grid</a></li>
+<li><a href="#chk">Pre-run checklist</a></li>
+<li><a href="#src">Sources</a></li>
+</ol></nav>
+
+<h2 id="p">1. Case particulars and derived numbers</h2>
+<table>
+<tr><th>Quantity</th><th>Full scale</th><th>Model 1:51.1</th><th>Note</th></tr>
+<tr><td>L<sub>PP</sub></td><td class="n">142.0 m</td><td class="n">2.7789 m</td><td>workshop geometry</td></tr>
+<tr><td>B (waterline)</td><td class="n">19.06 m ⚑</td><td class="n">0.3730 m</td><td></td></tr>
+<tr><td>T (design, even keel)</td><td class="n">6.15 m ⚑</td><td class="n">0.1204 m</td><td>initial position of the hull</td></tr>
+<tr><td>Displacement</td><td class="n">8424 t ⚑ (sea water)</td><td class="n">∇ = 0.06160 m³ → m = 61.54 kg</td><td>fresh water ρ = 999.1 kg/m³</td></tr>
+<tr><td>Wetted surface (bare hull, static)</td><td class="n">2949.5 m² ⚑</td><td class="n">1.1296 m²</td><td>use the value your CAD gives at T</td></tr>
+<tr><td>C<sub>B</sub></td><td class="n">0.507 ⚑</td><td class="n">0.507</td><td></td></tr>
+<tr><td>LCB/LCG</td><td class="n">0.683% L<sub>PP</sub> aft of midship ⚑</td><td class="n">≈1.370 m fwd of AP</td><td>set LCG = LCB from your hydrostatics</td></tr>
+<tr><td>KG</td><td class="n">7.555 m ⚑</td><td class="n">0.1478 m</td><td>only affects pitch weakly (no roll DOF)</td></tr>
+<tr><td>k<sub>yy</sub></td><td class="n">0.25 L<sub>PP</sub></td><td class="n">0.6947 m → I<sub>yy</sub> = 29.70 kg·m²</td><td>standard assumption</td></tr>
+<tr><th colspan="4">Flow (computed)</th></tr>
+<tr><td>Speed V = Fn√(gL)</td><td class="n">14.56 m/s (28.3 kn)</td><td class="n"><b>2.0363 m/s</b></td><td>g = 9.81</td></tr>
+<tr><td>Kinematic viscosity</td><td class="n">1.1892e-6 (sea, 15 °C)</td><td class="n">1.1386e-6 m²/s (fresh, 15 °C)</td><td>ITTC 7.5-02-01-03</td></tr>
+<tr><td>Re = VL/ν</td><td class="n">1.74e9</td><td class="n"><b>4.97e6</b></td><td></td></tr>
+<tr><td>C<sub>F</sub> ITTC-1957</td><td class="n">1.431e-3</td><td class="n">3.400e-3</td><td>0.075/(log Re − 2)²</td></tr>
+<tr><td>Transverse Kelvin wavelength λ = 2πFn²L</td><td></td><td class="n"><b>2.656 m</b> (0.956 L)</td><td>drives free-surface cell size</td></tr>
+<tr><td>Flow-through time L/U</td><td></td><td class="n">1.365 s</td><td></td></tr>
+<tr><td>Friction velocity u<sub>τ</sub></td><td></td><td class="n">0.0771 m/s</td><td>from C<sub>f</sub> = (2 log Re − 0.65)<sup>−2.3</sup> = 2.87e-3</td></tr>
+<tr><td>Turbulent BL thickness at AP, δ ≈ 0.37 L Re<sup>−0.2</sup></td><td></td><td class="n">≈47 mm</td><td>flat-plate estimate</td></tr>
+</table>
+
+<h2 id="dom">2. Domain and boundary conditions</h2>
+<p>Half domain with a symmetry plane at y = 0 (valid because only heave and pitch are free). Pick any axis orientation; only the extents matter. ITTC 7.5-03-02-03 recommends inlet 1–2 L, outlet 3–5 L, side 1.5–2 L, bottom 1–2 L.</p>
+<table>
+<tr><th>Boundary</th><th>Distance</th><th>Metres</th><th>Condition</th></tr>
+<tr><td>Inlet (ahead of FP)</td><td class="n">1.5 L</td><td class="n">4.2 m</td><td>Velocity inlet, VOF flat wave velocity &amp; volume fraction</td></tr>
+<tr><td>Outlet (aft of AP)</td><td class="n">3.0 L</td><td class="n">8.3 m</td><td>Pressure outlet, hydrostatic pressure from the flat VOF wave</td></tr>
+<tr><td>Side (from centreplane)</td><td class="n">2.0 L</td><td class="n">5.6 m</td><td>Velocity inlet (or symmetry); a velocity inlet stops reflection better with damping</td></tr>
+<tr><td>Bottom (below calm water)</td><td class="n">1.5 L</td><td class="n">4.2 m</td><td>Velocity inlet. Depth Froude V/√(gh) = 0.32, so deep water</td></tr>
+<tr><td>Top (above calm water)</td><td class="n">0.5 L</td><td class="n">1.4 m</td><td>Velocity inlet</td></tr>
+<tr><td>Centreplane</td><td></td><td></td><td>Symmetry plane (background and overset)</td></tr>
+<tr><td>Hull, deck, transom</td><td></td><td></td><td>No-slip wall (in overset region)</td></tr>
+</table>
+<p><b>Wave damping:</b> VOF wave damping on outlet and side boundaries, damping length 3.0 m (≈1.1 λ), vertical damping on, default coefficients (f1 = 10, f2 = 10, n = 2). Alternative: VOF wave forcing to the flat wave over the same length, which also handles the inlet.</p>
+
+<h2 id="bg">3. Background mesh (trimmed hexahedral)</h2>
+<p>Medium grid values. Free-surface rules used: ≥ 80 cells per λ in x/y, ~20 cells over the bow wave height in z, cell aspect ratio Δx/Δz ≤ 8 (Siemens marine practice; ITTC 7.5-03-02-03 asks for fine enough resolution of the wave pattern, without numbers). Here λ/Δx = 133 in the Kelvin wedge.</p>
+<table>
+<tr><th>Zone</th><th>Extent</th><th>Δx = Δy</th><th>Δz</th></tr>
+<tr><td>Base size</td><td>whole domain</td><td class="n">80 mm</td><td class="n">80 mm</td></tr>
+<tr><td>Far field (max)</td><td>far from hull and surface</td><td class="n">320 mm</td><td class="n">320 mm</td></tr>
+<tr><td>Free surface, global band</td><td>whole length/width, z = −0.06 … +0.06 m</td><td class="n">40 mm</td><td class="n">5 mm</td></tr>
+<tr><td><b>Kelvin wedge</b></td><td>from 0.2 L (0.56 m) ahead of FP to 1.5 L (4.2 m) aft of AP; half-angle 22° from a line offset 0.3 B off the centreplane at the bow (19.47° Kelvin + margin); z = −0.06 … +0.08 m</td><td class="n">20 mm</td><td class="n">2.5 mm</td></tr>
+<tr><td>Near-hull / overlap box</td><td>covers the overset region + 3 background cells all round; z = −0.30 … +0.25 m</td><td class="n">20 mm</td><td class="n">20 mm (2.5 mm inside the free-surface band)</td></tr>
+<tr><td>Transition boxes</td><td>1 and 2 box widths around the above</td><td class="n">80 / 160 mm</td><td class="n">10 / 20 mm</td></tr>
+<tr><td>Wake refinement (optional)</td><td>0.5 L behind transom, width 1.5 B, depth to 2 T</td><td class="n">20 mm</td><td class="n">20 mm</td></tr>
+</table>
+<p>Settings: Template growth rate "Medium" or "Slow" (not Fast) in the free-surface zones; Maximum cell size 400% of base; use anisotropic size controls (x, y, z separately) in volumetric controls. The bow wave crest at Fn 0.39 is steep; if the crest leaves the 2.5 mm band, extend the upper limit.</p>
+<div class="flag"><b>Inferred:</b> the vertical band limits (−0.06/+0.08 m) are estimates of the wave envelope plus sinkage at this Fn. Run the coarse grid first and adjust so that the whole free-surface isosurface (VOF = 0.5) stays inside the fine band.</div>
+
+<h2 id="ov">4. Overset region and cell-size matching</h2>
+<table>
+<tr><th>Item</th><th>Value</th></tr>
+<tr><td>Overset box extent</td><td>x: 0.1 L (0.28 m) ahead of FP to 0.1 L behind transom; y: 0 to 0.5 B + 0.20 m ≈ 0.39 m; z: 0.15 m below keel to 0.10 m above deck at side</td></tr>
+<tr><td>Hull surface target size</td><td class="n">10 mm (0.36% L)</td></tr>
+<tr><td>Hull surface minimum size</td><td class="n">1.5 mm (sonar dome, stem, transom edge, bilge keels if fitted)</td></tr>
+<tr><td>Surface curvature / growth</td><td>36 points per circle; surface growth 1.2</td></tr>
+<tr><td>Volume cells inside overset, general</td><td class="n">20 mm isotropic</td></tr>
+<tr><td>Free-surface band in overset</td><td class="n">Δx = Δy = 20 mm, Δz = 2.5 mm, z = −0.06 … +0.08 m (same as background)</td></tr>
+<tr><td>Bow/stern refinement</td><td>boxes of 0.1 L around stem and transom: 10 mm, Δz 2.5 mm</td></tr>
+</table>
+<p><b>Matching rules:</b></p>
+<ul>
+<li>Cells on both sides of the overlap must be the same size (ratio ≤ 1.2) in every direction, including the free-surface Δz. This is why the background near-hull box and free-surface band use exactly the overset sizes.</li>
+<li>At least 4–5 cells between the hull (prism layer top) and the overset boundary, and at least 4–5 overlapping background cells across the boundary. Nothing inside a gap narrower than that (watch the gap under the keel).</li>
+<li>The background refinement must cover the overset box at every position it can reach. Allow for sinkage and trim: at the ends a trim of 0.5° moves the box ±12 mm vertically.</li>
+<li>Overset interface: background ↔ overset region, interpolation "Linear" (distance-weighted is fine for coarse), Hole cutting default. Check the "Overset cell status" scalar: acceptor cells must form a continuous layer, and no "inactive" cells can touch the hull.</li>
+</ul>
+
+<h2 id="pl">5. Prism layers</h2>
+<p>STAR-CCM+ reports y<sup>+</sup> at the cell centroid, so the first-cell thickness is 2 × y<sub>c</sub>. y<sub>c</sub> = y<sup>+</sup>ν/u<sub>τ</sub> with u<sub>τ</sub> = 0.0771 m/s.</p>
+<table>
+<tr><th></th><th>Option A: wall function (recommended for the grid study)</th><th>Option B: low y<sup>+</sup> (resolved)</th></tr>
+<tr><td>Target y<sup>+</sup></td><td class="n">50 (keep 30–100 over most of the hull)</td><td class="n">≈1 (keep &lt; 1–2)</td></tr>
+<tr><td>First cell thickness</td><td class="n"><b>1.48 mm</b> (centroid 0.74 mm)</td><td class="n"><b>0.030 mm</b> (centroid 0.015 mm)</td></tr>
+<tr><td>Growth rate</td><td class="n">1.2</td><td class="n">1.15</td></tr>
+<tr><td>Number of layers</td><td class="n">8</td><td class="n">38–40</td></tr>
+<tr><td>Total thickness</td><td class="n">≈25 mm (≈0.5 δ<sub>AP</sub>)</td><td class="n">≈45 mm (≈0.95 δ<sub>AP</sub>)</td></tr>
+<tr><td>Last layer / core cell</td><td class="n">5.4 mm / 10 mm</td><td class="n">≈6 mm / 10 mm</td></tr>
+<tr><td>Wall treatment</td><td>All y<sup>+</sup> wall treatment (acts as wall function at y<sup>+</sup> &gt; 30)</td><td>All y<sup>+</sup> or Low y<sup>+</sup></td></tr>
+<tr><td>Cell count cost</td><td>low</td><td>≈ +1.5–2.5 M cells in the half domain</td></tr>
+</table>
+<p>For reference: y<sup>+</sup> = 30 → 0.89 mm, y<sup>+</sup> = 60 → 1.77 mm, y<sup>+</sup> = 100 → 2.95 mm first-cell thickness. Local y<sup>+</sup> is lower near the stem and higher on the forebody sides. Check the Wall Y+ scalar after ~5 L/U and adjust. Use prism layer "Gap fill 25%", "Layer reduction 50%", and keep the prism layers off the deck if it is always dry (saves cells).</p>
+
+<h2 id="phys">6. Physics and solver settings</h2>
+<table>
+<tr><th>Model</th><th>Setting</th></tr>
+<tr><td>Space / time</td><td>Three-dimensional; Implicit Unsteady, <b>2nd-order temporal</b></td></tr>
+<tr><td>Multiphase</td><td>Eulerian Multiphase, Volume of Fluid (VOF); water (999.1 kg/m³, μ = 1.1375e-3 Pa·s) and air (1.18 kg/m³, 1.855e-5 Pa·s)</td></tr>
+<tr><td>VOF</td><td>HRIC; Courant lower/upper 0.5/1 (defaults); Sharpening factor 0–0.1; Angle factor 0.05</td></tr>
+<tr><td>VOF waves</td><td>Flat wave, current = −V along ship axis (or ship moving at +V with a stationary flat wave), point on water level at z = 0</td></tr>
+<tr><td>Flow</td><td>Segregated flow, 2nd-order convection; Constant density per phase</td></tr>
+<tr><td>Turbulence</td><td>RANS, <b>k-ω SST (Menter)</b> (alternative: Realizable k-ε two-layer). Turbulence intensity at inlet 1%, viscosity ratio 10</td></tr>
+<tr><td>Gravity</td><td>on, −9.81 m/s² in z</td></tr>
+<tr><td>Motion</td><td>DFBI Rotation and Translation on the overset region</td></tr>
+<tr><td>Initial conditions</td><td>Velocity, volume fraction and pressure from the flat VOF wave field functions (hydrostatic pressure initialisation)</td></tr>
+<tr><td>Under-relaxation</td><td>Velocity 0.8–0.9, Pressure 0.2–0.3, VOF 0.9, turbulence 0.8</td></tr>
+<tr><td>Inner iterations</td><td>until all residuals &lt; 1e-4, max 20 per time step (see residual section)</td></tr>
+</table>
+
+<h2 id="dt">7. Time step and run length</h2>
+<table>
+<tr><th>Item</th><th>Value</th></tr>
+<tr><td>ITTC 7.5-03-02-03 range for resistance</td><td class="n">Δt = 0.005–0.01 L/U = 6.8–13.6 ms</td></tr>
+<tr><td><b>Recommended (medium grid)</b></td><td class="n"><b>Δt = 0.005 L/U = 6.8 ms</b></td></tr>
+<tr><td>Free-surface Courant with Δx = 20 mm</td><td class="n">V Δt/Δx ≈ 0.69 (local velocity at the bow is lower; at the stern waves slightly higher)</td></tr>
+<tr><td>Start-up (optional)</td><td>first 2 L/U at Δt = 0.01 L/U, then halve</td></tr>
+<tr><td>Physical time</td><td class="n">≥ 30 L/U ≈ 40 s (≈5,900 steps at 6.8 ms)</td></tr>
+<tr><td>Averaging window</td><td>last 5–10 L/U, after R<sub>T</sub>, sinkage and trim have stopped drifting</td></tr>
+<tr><td>Convergence criterion</td><td>oscillation of R<sub>T</sub> over the window &lt; 0.5–1% of the mean; report it as iterative uncertainty U<sub>I</sub></td></tr>
+</table>
+
+<h2 id="res">Residual convergence target: 1e-4</h2>
+<p>Every time step iterates until all residuals below reach 1e-4, with a cap on inner iterations so a step that stalls doesn't run forever.</p>
+<table>
+<tr><th>Stopping criterion (Stopping Criteria &gt; Create New Criterion from Monitor)</th><th>Setting</th></tr>
+<tr><td>Continuity, X-momentum, Y-momentum, Z-momentum, Tke, Sdr (ω), Water volume fraction</td><td>Criterion option <b>Minimum Limit = 1e-4</b>; "Inner Iteration Criterion" ticked; Logical Rule <b>And</b> (all must reach 1e-4)</td></tr>
+<tr><td>Maximum Inner Iterations</td><td><b>20</b>, Logical Rule <b>Or</b> (the cap)</td></tr>
+<tr><td>Physical time (outer)</td><td>Maximum Physical Time 40 s (≈30 L/U); remove the Maximum Steps criterion or set it high</td></tr>
+<tr><td>Residual normalization</td><td>keep the default (Normalize on, first 5 iterations). The 1e-4 target is relative to the start-up residuals</td></tr>
+</table>
+<ul>
+<li>Check the residual plot after about 2 L/U. If continuity or the volume fraction stalls around 1e-3 on most steps and the cap of 20 is hit every time, the time step is too large for this grid. Reduce Δt, for example from 0.005 to 0.0035 L/U, rather than raising the cap.</li>
+<li>In unsteady VOF runs with DFBI, continuity is usually the last residual to reach 1e-4, especially just after the body release and during the ramp. Some steps hitting the cap during 1–4 s is normal.</li>
+<li>The residual target is not the resistance convergence test. Also require R<sub>T</sub>, sinkage and trim to change by less than 0.5–1% over the last 5–10 L/U.</li>
+</ul>
+
+<h2 id="dfbi">8. DFBI setup and ramp</h2>
+<ul>
+<li>6-DOF body on the hull boundaries. Because of the symmetry plane enter <b>half</b> values: mass 30.77 kg, I<sub>yy</sub> 14.85 kg·m² (I<sub>xx</sub>, I<sub>zz</sub> any positive value since those DOFs are fixed). CG at LCG ≈ 1.370 m forward of AP ⚑, KG = 0.148 m ⚑ above keel, y = 0.</li>
+<li>Degrees of freedom: <b>translation in z + rotation about y only</b> (use a 1-DOF translation + 1-DOF rotation constraint, or the "Free motion" options in newer versions).</li>
+<li>Start position: even keel at T = 0.1204 m. Check that hydrostatic heave force balances the weight in the first steps (a mismatch means mass, draft or water density is off).</li>
+<li><b>Release time 1.0 s (≈0.75 L/U)</b> so the start-up transient in the flow is not passed to the body.</li>
+<li><b>Ramp time 3.0 s (≈2.2 L/U)</b>: the DFBI forces are blended in linearly, which avoids a large heave overshoot.</li>
+<li>6-DOF solver: update the body every inner iteration; 6-DOF under-relaxation ~0.5 if the body motion oscillates between iterations; turn on "Enable 6-DOF solver" only after the release time (the release time does this).</li>
+<li>If you ramp the inflow instead (velocity field function from 0 to V over 2 L/U), keep the release time after the ramp finishes.</li>
+<li>Towing force: fixed surge means the drag is taken at the CG. A towing tank tows at the tow point (usually around the CG height or on the shaft line). The difference in pitch moment is small; for a closer match add an external force equal to R<sub>T</sub> at the tow-point height.</li>
+</ul>
+<p>Monitors: R<sub>T</sub> (total, and pressure/shear split) on the hull, sinkage of the CG (translation z), trim angle, and the overset cell status.</p>
+
+<h2 id="post">9. Resistance reduction per ITTC</h2>
+<p>ITTC 7.5-02-02-01 (resistance test) and 7.5-02-03-01.4 (1978 performance prediction):</p>
+<ul>
+<li>C<sub>T</sub> = R<sub>T</sub> / (½ρV²S) with S = static wetted surface at T (1.1296 m² for the full hull, i.e. 2 × R<sub>T,half</sub>). State whether S is static or dynamic.</li>
+<li>C<sub>F</sub> = 0.075/(log Re − 2)² = <b>3.400e-3</b> at model scale.</li>
+<li>Form factor (1+k): run a double-body (no free surface) RANS at the same Re, or use a Prohaska plot. For a transom-stern hull like 5415 the ITTC 2017 recommendation is to get k from low-speed or double-body runs.</li>
+<li>C<sub>W</sub> = C<sub>T</sub> − (1+k)C<sub>F</sub>.</li>
+<li>Full scale: C<sub>TS</sub> = (1+k)C<sub>FS</sub> + ΔC<sub>F</sub> + C<sub>A</sub> + C<sub>W</sub> + C<sub>AAS</sub>, with Re<sub>S</sub> = 1.74e9, C<sub>FS</sub> = 1.431e-3, ΔC<sub>F</sub> = 0.044[(k<sub>S</sub>/L)<sup>1/3</sup> − 10 Re<sup>−1/3</sup>] + 0.000125 = <b>2.07e-4</b> for k<sub>S</sub> = 150 µm.</li>
+</ul>
+<div class="flag"><b>Comparing with published data:</b> INSEAN 2340 and IIHR 5512 were tested at larger scales, so their C<sub>T</sub> is at a different Re. Compare C<sub>W</sub> (or C<sub>R</sub>) and sinkage/trim non-dimensionalised by L, not C<sub>T</sub> directly. Fn = 0.39 is not a workshop condition (workshops used 0.28 and 0.41), so interpolate from the published C<sub>T</sub>–Fn curves.</div>
+
+<h2 id="gc">10. Grid and time-step convergence plan (ITTC 7.5-03-01-01)</h2>
+<p>Three systematically refined grids with ratio r = √2 applied to every size control (base size, all volumetric controls, surface sizes). Refine the time step with the same ratio so the Courant number stays constant. With wall functions keep the first-cell thickness fixed (y<sup>+</sup> stays in the log layer) and refine tangentially; state this in the report because it is not strictly systematic.</p>
+<table>
+<tr><th>Grid</th><th>Base</th><th>Kelvin wedge Δx/Δz</th><th>Hull surface</th><th>Δt</th><th>Rough cell count (half domain) ⚑</th></tr>
+<tr><td>G3 coarse</td><td class="n">113 mm</td><td class="n">28.3 / 3.54 mm</td><td class="n">14.1 mm</td><td class="n">9.65 ms</td><td class="n">≈1.2 M</td></tr>
+<tr><td>G2 medium</td><td class="n">80 mm</td><td class="n">20 / 2.5 mm</td><td class="n">10 mm</td><td class="n">6.82 ms</td><td class="n">≈3.5 M</td></tr>
+<tr><td>G1 fine</td><td class="n">56.6 mm</td><td class="n">14.1 / 1.77 mm</td><td class="n">7.1 mm</td><td class="n">4.83 ms</td><td class="n">≈10 M</td></tr>
+</table>
+<p class="sub">⚑ cell counts are estimates (each √2 step multiplies the count by ~2.8). Your actual count depends on how large the Kelvin wedge is.</p>
+<p>Procedure for each quantity S (C<sub>T</sub>, sinkage, trim):</p>
+<ol>
+<li>ε<sub>21</sub> = S<sub>2</sub> − S<sub>1</sub>, ε<sub>32</sub> = S<sub>3</sub> − S<sub>2</sub>; convergence ratio R<sub>G</sub> = ε<sub>21</sub>/ε<sub>32</sub>. 0 &lt; R<sub>G</sub> &lt; 1 monotonic; R<sub>G</sub> &lt; 0 oscillatory; R<sub>G</sub> &gt; 1 divergent.</li>
+<li>Monotonic: p<sub>G</sub> = ln(ε<sub>32</sub>/ε<sub>21</sub>)/ln r; δ<sup>*</sup><sub>RE</sub> = ε<sub>21</sub>/(r<sup>p<sub>G</sub></sup> − 1); C<sub>G</sub> = (r<sup>p<sub>G</sub></sup> − 1)/(r<sup>p<sub>est</sub></sup> − 1) with p<sub>est</sub> = 2.</li>
+<li>U<sub>G</sub> = [9.6(1 − C<sub>G</sub>)² + 1.1]|δ<sup>*</sup><sub>RE</sub>| if |1 − C<sub>G</sub>| &lt; 0.125, else [2|1 − C<sub>G</sub>| + 1]|δ<sup>*</sup><sub>RE</sub>|. Oscillatory: U<sub>G</sub> = ½(S<sub>U</sub> − S<sub>L</sub>).</li>
+<li>Repeat with Δt ratio √2 on the medium grid for U<sub>T</sub>. U<sub>SN</sub> = √(U<sub>I</sub>² + U<sub>G</sub>² + U<sub>T</sub>²).</li>
+<li>Validation: E = D − S; validated at the U<sub>V</sub> level if |E| &lt; U<sub>V</sub> = √(U<sub>D</sub>² + U<sub>SN</sub>²). U<sub>D</sub> from your tank data or the published EFD uncertainty (≈1% of C<sub>T</sub> for the 5415 data sets).</li>
+</ol>
+<p>The ITTC 2017 update and Eça &amp; Hoekstra (2014) recommend least-squares fits over 4+ grids when three grids scatter. Add a G0 (r = 2 coarser than G1) if R<sub>G</sub> does not come out monotonic.</p>
+
+<h2 id="iitm">10a. Link to your IITM-RANS3D grid</h2>
+<p>Your IITM-RANS3D run of the same model used 30 mm laterally and 10 mm vertically in the refined region. Compared with the STAR-CCM+ grids above:</p>
+<table>
+<tr><th>Grid</th><th>Δx = Δy</th><th>Δz</th><th>Cells per λ (2.656 m)</th><th>Aspect ratio Δx/Δz</th></tr>
+<tr><td>IITM-RANS3D (your run)</td><td class="n">30 mm</td><td class="n">10 mm</td><td class="n">89</td><td class="n">3</td></tr>
+<tr><td>STAR G3 coarse</td><td class="n">28.3 mm</td><td class="n">3.54 mm</td><td class="n">94</td><td class="n">8</td></tr>
+<tr><td>STAR G2 medium</td><td class="n">20 mm</td><td class="n">2.5 mm</td><td class="n">133</td><td class="n">8</td></tr>
+<tr><td>STAR G1 fine</td><td class="n">14.1 mm</td><td class="n">1.77 mm</td><td class="n">188</td><td class="n">8</td></tr>
+</table>
+<ul>
+<li><b>Lateral:</b> your 30 mm already meets the ≥ 80 cells per wavelength rule, and STAR G3 (28.3 mm) is essentially the same lateral resolution. So the coarse STAR grid is the like-for-like comparison with your RANS3D result in x and y.</li>
+<li><b>Vertical:</b> 10 mm is 3–4× coarser than the STAR bands. I recommend keeping the finer Δz in STAR because HRIC VOF smears the interface over about 2–3 cells. With 10 mm cells that is a 20–30 mm interface, which is comparable to the wave amplitudes near the hull at this model size. How sharp the interface stays in RANS3D depends on its interface method (level set or VOF), which I don't know. So the 10 mm may have been adequate there without carrying over to STAR VOF.</li>
+<li><b>Optional solver-matched run:</b> to separate solver differences from grid differences, run one extra STAR case with the RANS3D sizes (30 mm lateral, 10 mm vertical in the same refined-region extents) and the same time step. Compare C<sub>T</sub>, sinkage, trim and wave cuts from STAR-matched, STAR G3–G1 and RANS3D.</li>
+<li>If your RANS3D refined region's extents (length ahead/behind the hull, width, height band) differ from the Kelvin wedge and free-surface band in Section 3, use the larger of the two so both solvers resolve the same part of the wave field.</li>
+</ul>
+
+<h2 id="chk">11. Pre-run checklist</h2>
+<ul>
+<li>Geometry L<sub>PP</sub> = 2.779 m, closed and watertight; draft line at z = 0 after placing the hull at T.</li>
+<li>Hydrostatics: buoyancy of the half hull = 30.77 × 9.81 = 301.9 N at T.</li>
+<li>Overset: no orphan cells, ≥ 4 cells overlap, equal cell sizes in the overlap (check with a section through the free surface).</li>
+<li>Wall y<sup>+</sup> within the target band after 5 L/U.</li>
+<li>Free-surface isosurface stays inside the 2.5 mm band; no reflections from the side/outlet (look at the wave pattern at 20 L/U).</li>
+<li>Residuals drop ≥ 2 orders per time step; R<sub>T</sub>, sinkage and trim flat over the averaging window.</li>
+</ul>
+
+<h2 id="src">12. Sources</h2>
+<ul>
+<li>ITTC 7.5-03-02-03 (2014, rev.) Practical Guidelines for Ship CFD Applications: domain extents, time step 0.005–0.01 L/U.</li>
+<li>ITTC 7.5-03-01-01 (2017) Uncertainty Analysis in CFD Verification and Validation: R<sub>G</sub>, p<sub>G</sub>, C<sub>G</sub>, U<sub>G</sub> formulas.</li>
+<li>ITTC 7.5-02-02-01 Resistance Tests; 7.5-02-03-01.4 1978 ITTC Performance Prediction Method (ΔC<sub>F</sub> formula); 7.5-02-01-03 fresh/sea water properties.</li>
+<li>Tokyo 2015 CFD Workshop (Hino et al., eds., Springer 2020) and Gothenburg 2010 (Larsson, Stern &amp; Visonneau, Springer 2014): DTMB 5415 / 5512 geometry, conditions and EFD.</li>
+<li>Olivieri et al. (2001) INSEAN 2340 towing-tank data; Longo &amp; Stern (2005) IIHR 5512 resistance, sinkage and trim data.</li>
+<li>SIMMAN 2008/2014 DTMB 5415 hull particulars (source of the ⚑ values).</li>
+<li>Siemens STAR-CCM+ user guide, marine/naval best practice (free-surface cells per wavelength, aspect ratio, overset matching). These are vendor guidance, not ITTC requirements.</li>
+</ul>
+<p class="sub">Values marked ⚑ and the cell counts are not verified against the primary documents in this session. Check them before relying on them.</p>
+</main></body></html>

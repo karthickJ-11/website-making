@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RANS3D Replication Setup</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--mut:#5f5e58;--line:#dcd9d0;--acc:#1f5f8b;--warn:#8a5a00;--wbg:#fff4dc;--th:#efece4;--k:#e6f1e6;--kf:#245c24}
+@media (prefers-color-scheme:dark){:root{--bg:#171716;--fg:#e8e6e0;--mut:#a3a19a;--line:#3a3935;--acc:#7fb6de;--warn:#e7b755;--wbg:#2e2616;--th:#24231f;--k:#1c2a1c;--kf:#9bd49b}}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:0 16px}
+main{max-width:980px;margin:32px auto 80px}
+h1{font-size:1.6em;margin:.2em 0}h2{margin-top:2em;border-bottom:1px solid var(--line);padding-bottom:.2em;color:var(--acc)}
+.sub{color:var(--mut)}
+table{border-collapse:collapse;width:100%;margin:.8em 0;font-size:.93em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}th{background:var(--th)}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.k{background:var(--k);color:var(--kf);font-weight:600;font-size:.8em;padding:1px 6px;border-radius:4px;white-space:nowrap}
+.a{background:var(--wbg);color:var(--warn);font-weight:600;font-size:.8em;padding:1px 6px;border-radius:4px;white-space:nowrap}
+.flag{background:var(--wbg);border-left:4px solid var(--warn);padding:8px 12px;margin:10px 0}
+</style></head><body><main>
+<h1>STAR-CCM+ setup replicating the IITM-RANS3D run</h1>
+<p class="sub">DTMB 5415 · 1:51.1 (L<sub>PP</sub> 2.779 m) · Fn 0.39 · V = 2.036 m/s · Re = 4.97e6 · companion to the ITTC setup guide</p>
+
+<p>Tags: <span class="k">RANS3D</span> = value from your IITM-RANS3D run. <span class="a">ASSUMED</span> = my closest reasonable choice until you give the RANS3D value. Replace every <span class="a">ASSUMED</span> value for a true replication; the list at the end says which ones matter most.</p>
+
+<div class="flag"><b>What "replicate" can mean here.</b> STAR-CCM+ uses an unstructured trimmed/overset mesh with VOF. If RANS3D uses a structured or body-fitted grid, or a different free-surface method, the cells can't be identical. What can be matched is the cell size in each region, the extents of those regions, the near-wall resolution, the time step, the physics and the motion. This sheet matches those.</div>
+
+<h2>1. Mesh resolution (matched)</h2>
+<table>
+<tr><th>Zone</th><th>Extent</th><th>Δx = Δy</th><th>Δz</th><th>Source</th></tr>
+<tr><td><b>Refined free-surface region</b> (background and overset, identical)</td><td>0.2 L (0.56 m) ahead of FP to 1.5 L (4.2 m) aft of AP; 22° Kelvin-wedge width; z = −0.06 … +0.08 m</td><td class="n"><b>30 mm</b></td><td class="n"><b>10 mm</b></td><td>sizes <span class="k">RANS3D</span>, extents <span class="a">ASSUMED</span></td></tr>
+<tr><td>Global free-surface band</td><td>whole domain, z = −0.06 … +0.06 m</td><td class="n">60 mm</td><td class="n">20 mm</td><td><span class="a">ASSUMED</span> (2× refined)</td></tr>
+<tr><td>Transition boxes</td><td>one and two box widths around the refined region</td><td class="n">120 / 240 mm</td><td class="n">40 / 80 mm</td><td><span class="a">ASSUMED</span></td></tr>
+<tr><td>Base size / far-field max</td><td>whole domain</td><td class="n">120 / 480 mm</td><td class="n">120 / 480 mm</td><td><span class="a">ASSUMED</span></td></tr>
+<tr><td>Overset region volume (outside FS band)</td><td>0.1 L around the hull; 0.2 m beyond the half-breadth; 0.15 m below keel to 0.10 m above deck</td><td class="n">30 mm</td><td class="n">30 mm</td><td><span class="a">ASSUMED</span></td></tr>
+<tr><td>Hull surface target / minimum</td><td>hull, transom, sonar dome</td><td class="n">15 mm / 3 mm</td><td></td><td><span class="a">ASSUMED</span> (½ of refined Δx)</td></tr>
+<tr><td>Prism layers</td><td>hull</td><td colspan="2">first cell 1.48 mm (y<sup>+</sup> ≈ 50), 8 layers, growth 1.2, total ≈ 25 mm, All-y<sup>+</sup> wall treatment</td><td><span class="a">ASSUMED</span></td></tr>
+</table>
+<ul>
+<li>Overset matching: the background refined region must use exactly 30 × 30 × 10 mm where it overlaps the overset region. Keep at least 4 cells of overlap and at least 4 cells between the prism-layer top and the overset boundary. With 30 mm cells the region needs ≈ 0.12 m clearance, which the 0.2 m side margin gives.</li>
+<li>Cells per transverse Kelvin wavelength (2.656 m): 89. Aspect ratio Δx/Δz = 3.</li>
+<li>VOF with 10 mm vertical cells: HRIC smears the interface over 2–3 cells (20–30 mm). To limit this, set the VOF sharpening factor to 0.1 and keep the free-surface Courant number ≤ 0.5 (see time step). Expect the wave crests right at the hull to be slightly lower than on a finer STAR grid. This is part of replicating the RANS3D resolution, not an error.</li>
+</ul>
+
+<h2>2. Domain and boundaries</h2>
+<table>
+<tr><th>Boundary</th><th>Value</th><th>Source</th></tr>
+<tr><td>Inlet / outlet</td><td>1.5 L ahead of FP / 3 L aft of AP</td><td><span class="a">ASSUMED</span> (ITTC range)</td></tr>
+<tr><td>Side / bottom / top</td><td>2 L / 1.5 L / 0.5 L</td><td><span class="a">ASSUMED</span></td></tr>
+<tr><td>Symmetry</td><td>half domain, centreplane symmetry</td><td><span class="a">ASSUMED</span></td></tr>
+<tr><td>Wave damping</td><td>3.0 m on the outlet and side (VOF wave damping)</td><td><span class="a">ASSUMED</span></td></tr>
+<tr><td>BC types</td><td>velocity inlet on inlet/side/bottom/top; pressure outlet (hydrostatic) on outlet; no-slip hull</td><td><span class="a">ASSUMED</span></td></tr>
+</table>
+
+<h2>3. Physics, time step and motion</h2>
+<table>
+<tr><th>Item</th><th>Setting</th><th>Source</th></tr>
+<tr><td>Solver</td><td>Implicit unsteady, 2nd-order time; segregated flow, 2nd-order convection</td><td><span class="a">ASSUMED</span></td></tr>
+<tr><td>Free surface</td><td>VOF, HRIC, sharpening 0.1, flat VOF wave with current V = 2.036 m/s</td><td>STAR has no level set; VOF is the closest</td></tr>
+<tr><td>Turbulence</td><td>k-ω SST, inlet intensity 1%, viscosity ratio 10</td><td><span class="a">ASSUMED</span></td></tr>
+<tr><td>Fluid</td><td>fresh water ρ = 999.1 kg/m³, ν = 1.1386e-6 m²/s (15 °C); air 1.18 kg/m³</td><td><span class="a">ASSUMED</span></td></tr>
+<tr><td>Time step</td><td class="n">Δt = 0.005 L/U = 6.8 ms (free-surface Courant ≈ 0.46 with 30 mm cells); inner iterations until residuals &lt; 1e-4, max 20 (see residual section)</td><td><span class="a">ASSUMED</span>; use the RANS3D Δt if known</td></tr>
+<tr><td>Motion</td><td>DFBI heave + pitch, half mass 30.77 kg, half I<sub>yy</sub> 14.85 kg·m², release 1.0 s, ramp 3.0 s</td><td><span class="a">ASSUMED</span></td></tr>
+<tr><td>If RANS3D was fixed (captive)</td><td>drop DFBI and the overset region; mesh the hull directly in one region at the same sinkage/trim as RANS3D (or even keel)</td><td>switch</td></tr>
+<tr><td>Run length / averaging</td><td>≥ 30 L/U (≈ 40 s); average the last 5–10 L/U</td><td><span class="a">ASSUMED</span></td></tr>
+</table>
+
+<h2 id="res">Residual convergence target: 1e-4</h2>
+<p>Every time step iterates until all residuals below reach 1e-4, with a cap on inner iterations so a step that stalls doesn't run forever.</p>
+<table>
+<tr><th>Stopping criterion (Stopping Criteria &gt; Create New Criterion from Monitor)</th><th>Setting</th></tr>
+<tr><td>Continuity, X-momentum, Y-momentum, Z-momentum, Tke, Sdr (ω), Water volume fraction</td><td>Criterion option <b>Minimum Limit = 1e-4</b>; "Inner Iteration Criterion" ticked; Logical Rule <b>And</b> (all must reach 1e-4)</td></tr>
+<tr><td>Maximum Inner Iterations</td><td><b>20</b>, Logical Rule <b>Or</b> (the cap)</td></tr>
+<tr><td>Physical time (outer)</td><td>Maximum Physical Time 40 s (≈30 L/U); remove the Maximum Steps criterion or set it high</td></tr>
+<tr><td>Residual normalization</td><td>keep the default (Normalize on, first 5 iterations). The 1e-4 target is relative to the start-up residuals</td></tr>
+</table>
+<ul>
+<li>Check the residual plot after about 2 L/U. If continuity or the volume fraction stalls around 1e-3 on most steps and the cap of 20 is hit every time, the time step is too large for this grid. Reduce Δt, for example from 0.005 to 0.0035 L/U, rather than raising the cap.</li>
+<li>In unsteady VOF runs with DFBI, continuity is usually the last residual to reach 1e-4, especially just after the body release and during the ramp. Some steps hitting the cap during 1–4 s is normal.</li>
+<li>The residual target is not the resistance convergence test. Also require R<sub>T</sub>, sinkage and trim to change by less than 0.5–1% over the last 5–10 L/U.</li>
+</ul>
+
+<h2>4. Comparison to report</h2>
+<p>C<sub>T</sub>, with the pressure and friction parts separated; sinkage and trim; wave cuts at y/L = 0.082, 0.172 and 0.324 (the INSEAN and IIHR positions); and the wave pattern contour. Use the same non-dimensionalisation (S at static draft, ρ, V) in both solvers. A difference in the friction part points to wall treatment or turbulence model; a difference in the pressure part points to free-surface resolution or method.</p>
+
+<h2>5. RANS3D values that decide how exact the match is</h2>
+<ol>
+<li><b>Motion:</b> free sinkage and trim, or fixed? If fixed, at what attitude?</li>
+<li><b>Refined-region extents:</b> length ahead/behind, width and vertical band of the 30 × 10 mm region.</li>
+<li><b>Near-wall grid:</b> first-cell height or y<sup>+</sup>, wall functions or resolved, and hull surface spacing.</li>
+<li><b>Turbulence model</b> and <b>free-surface method</b> (level set or VOF).</li>
+<li><b>Time step</b> and physical time run.</li>
+<li><b>Domain extents</b> and total cell count.</li>
+<li><b>Results</b> (C<sub>T</sub>, sinkage, trim) to compare against.</li>
+</ol>
+</main></body></html>
