@@ -1,9 +1,9 @@
 # DTMB 5415 calm-water resistance: STAR-CCM+ setup report
 
-**Case:** DTMB 5415 surface combatant, model scale 1:51.1, Froude number 0.39, calm water
-**Method:** STAR-CCM+ RANS with an overset mesh, DFBI free sinkage and trim, and VOF free surface
-**Reference run:** the same model computed earlier in IITM-RANS3D (refined-region cells 0.03 m lateral, 0.01 m vertical)
-**Prepared:** October 2026
+- **Case:** DTMB 5415 surface combatant, model scale 1:51.1, Froude number 0.39, calm water
+- **Method:** STAR-CCM+ RANS with an overset mesh, DFBI free sinkage and trim, and VOF free surface
+- **Reference run:** the same model computed earlier in IITM-RANS3D (refined-region cells 0.03 m lateral, 0.01 m vertical)
+- **Prepared:** October 2026
 
 This report collects the final STAR-CCM+ setup for the case, with every number derived from the hull dimensions and the speed. The mesh matches the earlier IITM-RANS3D run so the two solvers can be compared directly. Values marked ⚑ come from published DTMB 5415 particulars as recalled, not checked against the source documents. Values marked *(assumed)* are reasonable choices that still need the matching RANS3D input (see [Section 13](#13-assumptions-and-open-items)).
 
@@ -11,7 +11,7 @@ Companion files in this folder:
 - [`DTMB5415_1-51.1_Fn039_STARCCM_setup_guide.html`](DTMB5415_1-51.1_Fn039_STARCCM_setup_guide.html): ITTC-based guide with a finer STAR-only grid family (SST k-ω, 6.8 ms time step).
 - [`DTMB5415_STARCCM_replicate_IITM-RANS3D.html`](DTMB5415_STARCCM_replicate_IITM-RANS3D.html): first version of the RANS3D-matched sheet.
 
-Where this report and those files differ, this report holds the later decisions: standard k-ε, y⁺ = 30, a 0.001 s time step and 20 s of physical time.
+Where this report and those files differ, this report holds the later decisions: standard k-ε, y⁺ = 30, a 0.001 s time step with at most 10 inner iterations per step (the companion files use 20), 20 s of physical time, and a background overlap box matched to the overset cells.
 
 ---
 
@@ -42,6 +42,8 @@ Where this report and those files differ, this report holds the later decisions:
 | Speed | 2.036 m/s (Fn 0.39) |
 | Reynolds number | 4.97 × 10⁶ |
 | Refined free-surface cells | 30 mm lateral (x, y), 10 mm vertical (z), matching IITM-RANS3D |
+| Overset matching | background overlap box of 30 mm cells around the overset region |
+| Hull surface cells | 15 mm target; 5 mm minimum where the hull crosses the free surface |
 | Turbulence model | Standard K-Epsilon Two-Layer, Two-Layer All y⁺ wall treatment |
 | Target y⁺ | 30 |
 | Prism layers | first layer 0.886 mm, stretching 1.2, 10 layers, total 23.0 mm |
@@ -50,7 +52,7 @@ Where this report and those files differ, this report holds the later decisions:
 | Time step | 0.001 s, 2nd-order implicit (Courant number 0.068 on 30 mm cells) |
 | Inner iterations | until all residuals < 1 × 10⁻⁴, at most 10 per time step |
 | Physical time | 20 s (20,000 time steps, about 15 flow-throughs) |
-| Averaging window | 13 to 20 s |
+| Averaging window | a whole number of R<sub>T</sub> oscillation periods at the end of the run, about 2 × 5.2 s (≈ 9.6 to 20 s) |
 
 ---
 
@@ -118,34 +120,39 @@ These extents are *(assumed)*. Replace them with the RANS3D domain if it differs
 
 | Zone | Extent | Δx = Δy | Δz |
 |---|---|---|---|
-| **Refined free-surface region** (background and overset, identical) | 0.2 L (0.56 m) ahead of FP to 1.5 L (4.17 m) aft of AP; Kelvin-wedge width at 22° half-angle; z = −0.06 to +0.08 m *(assumed)* | **30 mm** | **10 mm** |
+| **Refined free-surface region** (background and overset, identical) | 0.2 L (0.56 m) ahead of FP to 1.5 L (4.17 m) aft of AP; half-width at least 0.54 m alongside the hull (covers the overlap box), widening aft of the transom at 22°; z = −0.06 to +0.08 m *(assumed)* | **30 mm** | **10 mm** |
+| **Overlap box** (background) | encloses the overset box with 0.15 m margin on every side: 0.43 m ahead of FP to 0.43 m aft of the transom; centreplane to 0.54 m; z = −0.42 m to 0.30 m above the deck | **30 mm** | **30 mm** (10 mm inside the free-surface band) |
 | Global free-surface band | whole domain, z = −0.06 to +0.06 m | 60 mm | 20 mm |
-| Transition boxes | one and two box widths around the refined region | 120 / 240 mm | 40 / 80 mm |
+| Transition boxes | one and two box widths around the refined region and overlap box | 120 / 240 mm | 40 / 80 mm |
 | Base size / far-field maximum | whole domain | 120 / 480 mm | 120 / 480 mm |
 
-Resolution of the Kelvin wave: λ<sub>w</sub> / Δx = 2.656 / 0.030 = **89 cells per wavelength**, above the usual minimum of 80. The cell aspect ratio is Δx/Δz = 3.
+Resolution of the Kelvin wave: λ<sub>w</sub> / Δx = 2.656 / 0.030 = **89 cells per transverse wavelength**, above the usual minimum of 80. Divergent waves are shorter (λ = λ<sub>w</sub> cos²θ): near the cusp line, λ ≈ 1.77 m gets about 59 cells. Expect some damping of the divergent waves in the outer wave cuts. The cell aspect ratio is Δx/Δz = 3.
 
-The 22° half-angle is the Kelvin angle of 19.47° plus a margin. Only the 30 mm and 10 mm sizes come from RANS3D. The zone extents and the coarser sizes are *(assumed)*.
+The 22° half-angle is the Kelvin angle of 19.47° plus a margin. The 0.15 m overlap margin is the 0.12 m (4-cell) clearance plus 0.03 m for sinkage and trim. Only the 30 mm and 10 mm sizes come from RANS3D. The zone extents and the coarser sizes are *(assumed)*.
 
 ### 5.2 Overset region
 
 | Item | Value |
 |---|---|
-| Overset box | 0.1 L (0.28 m) ahead of FP to 0.1 L aft of the transom; centreplane to 0.5 B + 0.20 m (≈ 0.39 m); 0.15 m below the keel to 0.10 m above the deck |
+| Overset box | 0.1 L (0.28 m) ahead of FP to 0.1 L aft of the transom; centreplane to 0.5 B + 0.20 m (≈ 0.39 m); 0.15 m below the keel to 0.15 m above the deck |
 | Volume cells outside the free-surface band | 30 mm |
 | Free-surface band inside the overset | 30 × 30 × 10 mm, identical to the background |
-| Hull surface target / minimum | 15 mm / 3 mm (sonar dome, stem, transom edge) *(assumed)* |
+| Hull surface target | 15 mm *(assumed)* |
+| Hull surface minimum | 3 mm below the waterline (sonar dome); **5 mm** where the hull crosses the free surface (stem, transom edge), so the Courant number there stays at or below 0.41 *(assumed)* |
 
 ### 5.3 Overset rules
 
-- **Matching sizes:** cells on both sides of the overlap must be the same size in every direction, including the 10 mm vertical size. This is why the background refined region uses exactly 30 × 30 × 10 mm.
-- **Clearance:** keep at least 4 cells between the top of the prism layers and the overset boundary, and at least 4 overlapping background cells. With 30 mm cells that needs about 0.12 m of clearance, which the 0.20 m side margin provides.
-- **Coverage:** the background refined region must cover the overset box at every position it can reach. A 0.5° trim moves the box ends by about ±12 mm vertically.
+- **Matching sizes:** cells on both sides of the overlap must be the same size in every direction, including the 10 mm vertical size. This is why the background uses exactly 30 × 30 × 10 mm in the free-surface band and 30 mm isotropic cells in the overlap box around the overset region.
+- **Clearance:** keep at least 4 cells between the top of the prism layers and the overset boundary, and at least 4 overlapping background cells. With 30 mm cells that is about 0.12 m. Check every face of the box:
+  - side: (0.20 − 0.023) / 0.030 = 5.9 cells
+  - bottom: (0.15 − 0.023) / 0.030 = 4.2 cells
+  - top: 0.15 / 0.030 = 5.0 cells, with no prism layers on the deck
+- **Coverage:** the background overlap box must cover the overset box at every position it can reach. A 0.5° trim moves the box ends by about ±15 mm vertically, plus the sinkage. The 0.15 m overlap margin allows for this.
 - **Interface:** use one overset interface between the background and overset regions with linear interpolation. Check the Overset Cell Status scalar: the acceptor cells must form a closed layer, and no inactive cells may touch the hull.
 
 ### 5.4 Free-surface smearing with 10 mm vertical cells
 
-HRIC spreads the interface over about 2 to 3 cells, so with 10 mm vertical cells it is 20 to 30 mm thick. To limit this, set the VOF sharpening factor to 0.1. The 0.001 s time step keeps the free-surface Courant number at 0.068, which is far below the HRIC limit. Wave crests right at the hull may come out slightly lower than on a finer STAR-CCM+ grid. That comes from matching the RANS3D resolution and is not a setup error.
+HRIC spreads the interface over about 2 to 3 cells, so with 10 mm vertical cells it is 20 to 30 mm thick. To limit this, set the VOF sharpening factor to 0.1. With the 0.001 s time step the free-surface Courant number is 0.068 in the 30 mm cells, 0.14 in the 15 mm hull cells and 0.41 in the 5 mm cells at the stem and transom edge. All of these are below the HRIC limit of 0.5. Wave crests right at the hull may come out slightly lower than on a finer STAR-CCM+ grid. That comes from matching the RANS3D resolution and is not a setup error.
 
 ---
 
@@ -176,7 +183,7 @@ STAR-CCM+ reports y⁺ at the centre of the wall cell, so the first layer is twi
 | Prism Layer Total Thickness | **23.0 mm** = 0.886 × (1.2¹⁰ − 1) / 0.2 |
 | Last (outermost) layer | 4.57 mm = 0.886 × 1.2⁹ |
 
-The total is about half the 47 mm boundary-layer thickness at the stern, which is typical with wall functions. If the step from the 4.6 mm last layer to the 15 mm hull cells looks abrupt, use 12 layers. That gives 35.0 mm total with a 6.6 mm last layer.
+The total is about half the 47 mm boundary-layer thickness at the stern, which is typical with wall functions. If the step from the 4.6 mm last layer to the 15 mm hull cells looks abrupt, use 12 layers. That gives 35.1 mm total with a 6.6 mm last layer.
 
 For reference at the same speed: y⁺ = 50 gives a first layer of 1.48 mm, and y⁺ = 100 gives 2.95 mm.
 
@@ -191,7 +198,7 @@ After about 3 s of simulated time, plot the Wall Y+ scalar on the hull. Aim for 
 | Model | Setting |
 |---|---|
 | Space and time | Three dimensional; Implicit Unsteady |
-| Multiphase | Eulerian Multiphase, Volume of Fluid. Water: 999.1 kg/m³, 1.1375 × 10⁻³ Pa·s. Air: 1.18 kg/m³, 1.855 × 10⁻⁵ Pa·s. |
+| Multiphase | Eulerian Multiphase, Volume of Fluid. Water: 999.1 kg/m³, 1.1375 × 10⁻³ Pa·s. Air (15 °C): 1.225 kg/m³, 1.79 × 10⁻⁵ Pa·s. |
 | VOF | HRIC; sharpening factor 0.1; default Courant limits (0.5 / 1) |
 | VOF wave | Flat wave; current 2.0363 m/s along the ship axis; calm water level at z = 0 |
 | Flow solver | Segregated flow, 2nd-order convection, constant density per phase |
@@ -204,7 +211,7 @@ After about 3 s of simulated time, plot the Wall Y+ scalar on the hull. Aim for 
 
 **Why All y⁺ with standard k-ε:** y⁺ = 30 is the lowest value where wall functions are valid. The High y⁺ wall treatment is inaccurate wherever y⁺ falls below 30, and some hull areas always do. The two-layer All y⁺ treatment blends between resolved and wall-function behaviour, so it stays valid there.
 
-**Changing from SST k-ω:** clear the solution and start from the initial conditions. Don't continue an SST k-ω simulation, because the ω field doesn't convert to ε.
+**Changing from SST k-ω:** clear the solution and start from the initial conditions. That way the k-ε run has its own start-up and body-release history, and it can be compared cleanly with the SST k-ω and RANS3D runs.
 
 **Known limits of standard k-ε:** it over-predicts turbulent kinetic energy at the bow stagnation point and is less accurate for the stern and transom flow than SST k-ω. Total resistance usually differs little between the two models, but compare them on this case before relying on either.
 
@@ -219,7 +226,7 @@ The time step must satisfy three conditions; the smallest wins.
 | Criterion | Rule | Limit for this case |
 |---|---|---|
 | ITTC 7.5-03-02-03 (resistance) | Δt = 0.005 to 0.01 × L/V | 6.8 to 13.6 ms |
-| Free-surface Courant number | C = V Δt / Δx ≤ 0.5 (sharp HRIC interface) | Δt ≤ 0.5 × 0.030 / 2.036 = 7.4 ms |
+| Free-surface Courant number | C = V Δt / Δx ≤ 0.5 (sharp HRIC interface), on the **smallest** cells the free surface crosses | 30 mm cells: Δt ≤ 7.4 ms; 15 mm hull cells: Δt ≤ 3.7 ms; 5 mm stem and transom cells: Δt ≤ 1.2 ms |
 | Body motion | at least 100 time steps per heave/pitch period (estimated period about 0.8 s ⚑) | Δt ≤ 8 ms |
 
 The heave period was estimated as 2π √((m + a₃₃) / (ρ g A<sub>WP</sub>)), with added mass a₃₃ ≈ m and a waterplane coefficient of 0.78. That makes it a rough estimate only.
@@ -230,21 +237,25 @@ The heave period was estimated as 2π √((m + a₃₃) / (ρ g A<sub>WP</sub>))
 
 | Check | Value |
 |---|---|
-| Free-surface Courant number | 2.0363 × 0.001 / 0.030 = **0.068** |
+| Free-surface Courant number | **0.068** on 30 mm cells (2.0363 × 0.001 / 0.030); 0.14 on 15 mm hull cells; 0.41 on 5 mm stem and transom cells |
 | In flow-through units | 0.00073 L/V, finer than the ITTC range |
 | Time steps per heave period | about 780 |
 | Time steps for 20 s | 20,000 |
 
-This is finer than the conditions need. The result should match a 6.8 ms run to within about 1%, at about 3.4 times the cost over 20 s. The grid limits the accuracy at this point, not the time step.
+The binding limit is the Courant number in the 5 mm cells where the hull crosses the free surface, which needs Δt ≤ 1.2 ms. A time step of 0.001 s satisfies it. In the 30 mm refined region it is much finer than needed, so the grid, not the time step, limits the accuracy there.
+
+Monitor the maximum convective Courant number in cells containing the interface (volume fraction between 0.05 and 0.95). It should stay below 0.5.
 
 ### 8.3 Why not a Courant number of 10⁻⁴ or 10⁻³
 
-| Courant target | Time step on 30 mm cells | Time steps for 40 s | Verdict |
+| Courant target (30 mm cells) | Time step | Time steps for 20 s | Verdict |
 |---|---|---|---|
-| 10⁻⁴ | 1.47 × 10⁻⁶ s | about 27 million | impractical |
-| 10⁻³ | 1.47 × 10⁻⁵ s | about 2.7 million | impractical |
-| 0.068 | 1.0 × 10⁻³ s | 40,000 (20,000 for 20 s) | chosen |
-| 0.46 | 6.8 × 10⁻³ s | about 5,900 | ITTC value, also valid |
+| 10⁻⁴ | 1.47 × 10⁻⁶ s | about 13.6 million | impractical |
+| 10⁻³ | 1.47 × 10⁻⁵ s | about 1.36 million | impractical |
+| 0.068 | 1.0 × 10⁻³ s | 20,000 | **chosen** |
+| 0.46 | 6.8 × 10⁻³ s | about 2,930 | ITTC value, but too large for the 15 mm and 5 mm hull cells (Courant 0.93 and 2.8) |
+
+Compared with 6.8 ms, the 0.001 s step takes 6.8 times as many time steps. The total cost is about 3.4 to 6.8 times as much, depending on how many inner iterations each step needs.
 
 Courant numbers below about 0.2 don't improve calm-water resistance. The 10⁻⁴ target belongs to the residuals (Section 9), not to the Courant number.
 
@@ -286,7 +297,7 @@ Enter half values because of the symmetry plane. In the first steps the hydrosta
 
 The release and ramp times are in seconds, so they don't change with the time step.
 
-**Towing point:** with surge fixed, the drag acts through the centre of gravity. A towing tank tows at the tow point. The resulting pitch-moment difference is small; to match a tank test closely, add an external force equal to R<sub>T</sub> at the tow-point height.
+**Towing point:** with surge fixed, the force that holds the model (the equivalent of the tow force) acts through the centre of gravity. In a towing tank it acts at the tow point. The resulting pitch-moment difference is small; to match a tank test closely, add an external force equal to R<sub>T</sub> at the tow-point height.
 
 ---
 
@@ -295,10 +306,11 @@ The release and ramp times are in seconds, so they don't change with the time st
 | Item | Value |
 |---|---|
 | Physical time | **20 s** = 14.7 flow-throughs (L/V = 1.365 s) |
-| Start-up | ramp complete at 4 s; start-up disturbance flushed from the domain by about 8 s (domain length 15.3 m / 2.04 m/s ≈ 7.5 s) |
-| **Averaging window** | **13 to 20 s** (last 7 s, about 5 flow-throughs) |
-| Convergence check | over 13–20 s, R<sub>T</sub> varies by < 1% of its mean; sinkage and trim flat |
-| If still drifting | continue the saved simulation to 25 or 30 s; don't restart |
+| Start-up | ramp complete at 4 s. Vortical disturbances leave the domain by about 8 s (4 s + 8.34 m / V). Transient waves move aft at about V/2 and pass the outlet by about 12 s. |
+| Start-up wave transient | a resistance oscillation with period 8πV/g = **5.2 s** that decays slowly, because part of the start-up wave system travels with the hull |
+| **Averaging window** | a whole number of R<sub>T</sub> oscillation periods at the end of the run. Two periods are about 10.4 s, so about 9.6 to 20 s; use the oscillation period seen in the R<sub>T</sub> plot |
+| Convergence check | over the window, the mean of R<sub>T</sub> does not drift and the oscillation is < 1% of the mean; sinkage and trim flat |
+| If still drifting | continue the saved simulation to 25 or 30 s, average over whole periods again; don't restart |
 
 **Monitors to set up:**
 - total resistance R<sub>T</sub> on the hull, with the pressure and shear parts separate
@@ -332,24 +344,28 @@ C<sub>TS</sub> = (1 + k) C<sub>FS</sub> + ΔC<sub>F</sub> + C<sub>A</sub> + C<su
 ### 12.3 Comparing with RANS3D and test data
 
 - **Against IITM-RANS3D:** compare C<sub>T</sub> with pressure and friction separated, sinkage, trim, and wave cuts at y/L = 0.082, 0.172 and 0.324. Use the same S, ρ and V in both. A difference in friction points to the wall treatment or turbulence model; a difference in pressure points to free-surface resolution or method.
-- **Against published tank data:** INSEAN 2340 and IIHR 5512 were tested at larger scales and at Fn 0.28 and 0.41. Compare C<sub>W</sub>, sinkage and trim interpolated to Fn 0.39, not C<sub>T</sub>, because C<sub>T</sub> depends on the Reynolds number.
+- **Against published tank data:** INSEAN 2340 and IIHR 5512 were tested at larger scales. Their resistance, sinkage and trim were measured over a Froude-number range that includes 0.39, so read those values at Fn 0.39 directly from the curves. Wave cuts and local flow data exist only at Fn 0.28 and 0.41. Compare the residuary coefficient C<sub>R</sub> = C<sub>T</sub> − (1 + k) C<sub>F</sub>, sinkage and trim rather than C<sub>T</sub>, because C<sub>T</sub> depends on the Reynolds number.
 
 ### 12.4 Grid and time-step study (ITTC 7.5-03-01-01)
 
-Three grids with refinement ratio r = √2, with the RANS3D grid as the medium. Refine the time step by the same ratio so the Courant number stays at 0.068. Keep the first prism layer fixed so y⁺ stays at 30, and refine tangentially. That makes the study not strictly systematic near the wall, which should be stated when reporting it.
+ITTC 7.5-03-01-01 changes one input at a time and holds the others fixed. So run a grid study at a fixed time step, then a time-step study on the medium grid.
 
-| Grid | Refined Δx = Δy | Refined Δz | Δt |
-|---|---|---|---|
-| Coarse | 42.4 mm | 14.1 mm | 1.41 ms |
-| **Medium (RANS3D match)** | **30 mm** | **10 mm** | **1.00 ms** |
-| Fine | 21.2 mm | 7.07 mm | 0.71 ms |
+**Grid study:** three grids with refinement ratio r = √2, the RANS3D grid as the medium, all at Δt = 0.71 ms. That keeps the Courant number below 0.5 on the fine grid's smallest hull cells (3.5 mm). Scale every size control by r, including the hull surface sizes and the overlap box. Keep the first prism layer fixed so y⁺ stays at 30, and refine tangentially. That makes the study not strictly systematic near the wall, which should be stated when reporting it.
+
+| Grid | Refined Δx = Δy | Refined Δz | Hull surface target / waterline minimum | Δt |
+|---|---|---|---|---|
+| Coarse | 42.4 mm | 14.1 mm | 21.2 / 7.1 mm | 0.71 ms |
+| **Medium (RANS3D match)** | **30 mm** | **10 mm** | **15 / 5 mm** | 0.71 ms |
+| Fine | 21.2 mm | 7.07 mm | 10.6 / 3.5 mm | 0.71 ms |
+
+**Time-step study:** medium grid at Δt = 1.41, 1.00 and 0.71 ms.
 
 For each result S (C<sub>T</sub>, sinkage, trim), with grids 1 = fine, 2 = medium, 3 = coarse:
 
 1. ε₂₁ = S₂ − S₁ and ε₃₂ = S₃ − S₂. The convergence ratio R<sub>G</sub> = ε₂₁ / ε₃₂ is monotonic for 0 < R<sub>G</sub> < 1, oscillatory for R<sub>G</sub> < 0 and divergent for R<sub>G</sub> > 1.
 2. If monotonic: p<sub>G</sub> = ln(ε₃₂/ε₂₁) / ln r; δ\*<sub>RE</sub> = ε₂₁ / (r<sup>p<sub>G</sub></sup> − 1); C<sub>G</sub> = (r<sup>p<sub>G</sub></sup> − 1) / (r<sup>p<sub>est</sub></sup> − 1), with p<sub>est</sub> = 2.
 3. U<sub>G</sub> = [9.6 (1 − C<sub>G</sub>)² + 1.1] |δ\*<sub>RE</sub>| if |1 − C<sub>G</sub>| < 0.125, otherwise [2 |1 − C<sub>G</sub>| + 1] |δ\*<sub>RE</sub>|. If oscillatory, U<sub>G</sub> = ½ (S<sub>max</sub> − S<sub>min</sub>).
-4. Repeat with the time step alone (√2 ratio, medium grid) to get U<sub>T</sub>. Then U<sub>SN</sub> = √(U<sub>I</sub>² + U<sub>G</sub>² + U<sub>T</sub>²), where U<sub>I</sub> is the iterative uncertainty from the averaging window.
+4. Apply the same steps to the time-step study to get U<sub>T</sub>. Then U<sub>SN</sub> = √(U<sub>I</sub>² + U<sub>G</sub>² + U<sub>T</sub>²), where U<sub>I</sub> is the iterative uncertainty from the averaging window.
 5. Validation: E = D − S. The result is validated if |E| < U<sub>V</sub> = √(U<sub>D</sub>² + U<sub>SN</sub>²).
 
 ---
